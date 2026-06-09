@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notas</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;1,300&family=DM+Mono:wght@300;400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --bg2: #ede8de;
+    --bg3: #e4ddd0;
+    --panel: #faf7f2;
+    --ink: #2a2520;
+    --ink2: #6b6055;
+    --ink3: #9e948a;
+    --accent: #c0480a;
+    --accent2: #e8660f;
+    --accent-bg: #fdf0ea;
+    --border: #d8d0c4;
+    --border2: #c8bfb0;
+    --shadow: rgba(42,37,32,0.08);
+    --shadow2: rgba(42,37,32,0.15);
+    --green: #2d7a4f;
+    --blue: #1a5f8a;
+    --red: #b03020;
+    --yellow: #c49010;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: var(--ink);
+    color: #f5f0e8;
+    height: 46px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 2px solid var(--accent);
+  }
+  #topbar .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    color: #f5f0e8;
+    flex-shrink: 0;
+  }
+  #topbar .logo span { color: var(--accent2); }
+  #topbar-spacer { flex: 1; }
+  #sync-status {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #9e948a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #sync-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #666;
+    transition: background 0.3s;
+  }
+  #sync-dot.ok { background: #4caf7d; }
+  #sync-dot.busy { background: var(--accent2); animation: pulse 0.8s infinite; }
+  #sync-dot.err { background: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  #btn-settings {
+    background: none; border: 1px solid #444; color: #ccc;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    font-size: 12px; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  #btn-settings:hover { background: #333; color: #fff; border-color: #666; }
+
+  #btn-import {
+    background: none; border: 1px solid #c0480a; color: #e8660f;
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    font-size: 12px; font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  #btn-import:hover { background: #c0480a; color: #fff; }
+  #file-import-input { display: none; }
+
+  /* ── IMPORT PROGRESS ── */
+  #import-progress {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #f5f0e8;
+    padding: 12px 24px; border-radius: 10px;
+    font-size: 13px; z-index: 99999;
+    display: none; align-items: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    font-family: 'DM Sans', sans-serif;
+  }
+  #import-progress.show { display: flex; }
+  #import-progress .imp-bar-wrap {
+    width: 140px; height: 6px; background: #444; border-radius: 3px; overflow: hidden;
+  }
+  #import-progress .imp-bar {
+    height: 100%; background: var(--accent2); border-radius: 3px;
+    transition: width 0.3s; width: 0%;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  #layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR SECTIONS ── */
+  #sidebar {
+    width: 200px;
+    background: var(--bg3);
+    border-right: 1px solid var(--border2);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  #sidebar-header {
+    padding: 12px 12px 8px;
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--ink3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #btn-new-section {
+    background: none; border: none; cursor: pointer;
+    color: var(--accent); font-size: 18px; line-height: 1;
+    padding: 0 2px;
+    transition: color 0.15s;
+  }
+  #btn-new-section:hover { color: var(--accent2); }
+
+  #sections-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+  #sections-list::-webkit-scrollbar { width: 4px; }
+  #sections-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .section-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    gap: 8px;
+    position: relative;
+  }
+  .section-item:hover { background: var(--bg2); }
+  .section-item.active {
+    background: var(--panel);
+    border-left-color: var(--accent);
+  }
+  .section-item .sec-color {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .section-item .sec-name {
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink);
+  }
+  .section-item .sec-count {
+    font-size: 10px;
+    color: var(--ink3);
+    font-family: 'DM Mono', monospace;
+  }
+  .section-item .sec-menu-btn {
+    opacity: 0;
+    background: none; border: none;
+    color: var(--ink3); cursor: pointer;
+    font-size: 14px; padding: 0 2px;
+    line-height: 1;
+    transition: opacity 0.15s;
+  }
+  .section-item:hover .sec-menu-btn { opacity: 1; }
+
+  /* ── PAGES PANEL ── */
+  #pages-panel {
+    width: 240px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  #pages-header {
+    padding: 12px 12px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #pages-title {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #btn-new-page {
+    background: var(--accent); border: none;
+    color: #fff; cursor: pointer;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    font-size: 16px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  #btn-new-page:hover { background: var(--accent2); }
+
+  #pages-search {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  #pages-search input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #pages-search input:focus { border-color: var(--accent); }
+  #pages-search input::placeholder { color: var(--ink3); }
+
+  #pages-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+  #pages-list::-webkit-scrollbar { width: 4px; }
+  #pages-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .page-card {
+    margin: 3px 8px;
+    padding: 10px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .page-card:hover { background: var(--bg2); border-color: var(--border); }
+  .page-card.active {
+    background: var(--accent-bg);
+    border-color: var(--accent);
+  }
+  .page-card .pg-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .page-card .pg-preview {
+    font-size: 11px;
+    color: var(--ink3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'DM Mono', monospace;
+  }
+  .page-card .pg-date {
+    font-size: 10px;
+    color: var(--ink3);
+    margin-top: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+  .page-card .pg-menu-btn {
+    position: absolute;
+    top: 8px; right: 8px;
+    opacity: 0;
+    background: none; border: none;
+    color: var(--ink3); cursor: pointer;
+    font-size: 14px; padding: 0 2px;
+    transition: opacity 0.15s;
+  }
+  .page-card:hover .pg-menu-btn { opacity: 1; }
+
+  /* ── EDITOR AREA ── */
+  #editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--panel);
+  }
+
+  #editor-topbar {
+    padding: 0 20px;
+    height: 44px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  #page-title-input {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink);
+    background: none;
+    border: none;
+    outline: none;
+    flex: 1;
+    min-width: 0;
+  }
+  #page-title-input::placeholder { color: var(--ink3); }
+
+  /* ── FORMATTING TOOLBAR ── */
+  #format-toolbar {
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .fmt-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 4px 7px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--ink2);
+    transition: all 0.1s;
+    line-height: 1;
+    font-family: 'DM Sans', sans-serif;
+    min-width: 28px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fmt-btn:hover { background: var(--bg3); border-color: var(--border2); color: var(--ink); }
+  .fmt-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+  .fmt-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+  .fmt-select {
+    background: none; border: 1px solid var(--border);
+    border-radius: 5px; padding: 3px 6px;
+    font-size: 12px; color: var(--ink2);
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    outline: none;
+  }
+  .fmt-select:focus { border-color: var(--accent); }
+  .color-btn {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  .color-btn:hover { transform: scale(1.2); border-color: var(--border2); }
+  input[type="color"].fmt-color-input {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px;
+    cursor: pointer;
+    background: none;
+  }
+
+  /* ── EDITOR ── */
+  #editor-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 40px 40px;
+  }
+  #editor-wrapper::-webkit-scrollbar { width: 6px; }
+  #editor-wrapper::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  #editor {
+    outline: none;
+    min-height: 100%;
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    caret-color: var(--accent);
+    max-width: 800px;
+  }
+  #editor:empty::before {
+    content: attr(data-placeholder);
+    color: var(--ink3);
+    pointer-events: none;
+  }
+  #editor h1 { font-family: 'Fraunces', serif; font-size: 24px; margin: 16px 0 8px; color: var(--ink); }
+  #editor h2 { font-family: 'Fraunces', serif; font-size: 20px; margin: 14px 0 6px; color: var(--ink); }
+  #editor h3 { font-family: 'Fraunces', serif; font-size: 16px; margin: 12px 0 4px; color: var(--ink); }
+  #editor ul, #editor ol { padding-left: 24px; margin: 4px 0; }
+  #editor li { margin: 2px 0; }
+  #editor blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 14px;
+    margin: 8px 0;
+    color: var(--ink2);
+    font-style: italic;
+  }
+  #editor code {
+    background: var(--bg3);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+  #editor a { color: var(--blue); }
+
+  /* ── EMPTY STATES ── */
+  #empty-section, #empty-page {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink3);
+    gap: 12px;
+    padding: 40px;
+    text-align: center;
+  }
+  #empty-section .big, #empty-page .big { font-size: 40px; }
+  #empty-section p, #empty-page p { font-size: 14px; line-height: 1.5; }
+
+  /* ── CONTEXT MENU ── */
+  #ctx-menu {
+    position: fixed;
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px var(--shadow2);
+    z-index: 9999;
+    min-width: 170px;
+    padding: 4px 0;
+    display: none;
+  }
+  #ctx-menu.show { display: block; }
+  .ctx-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--ink);
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.1s;
+  }
+  .ctx-item:hover { background: var(--bg2); }
+  .ctx-item.danger { color: var(--red); }
+  .ctx-item.danger:hover { background: #fdf0ee; }
+  .ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+
+  /* ── MODAL ── */
+  #modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(42,37,32,0.5);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #modal-overlay.show { display: flex; }
+  #modal {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 28px 28px 20px;
+    min-width: 340px;
+    max-width: 500px;
+    box-shadow: 0 20px 60px var(--shadow2);
+    border: 1px solid var(--border);
+  }
+  #modal h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: var(--ink);
+  }
+  #modal label { font-size: 12px; color: var(--ink3); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
+  #modal input, #modal select, #modal textarea {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 14px;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.15s;
+  }
+  #modal input:focus, #modal select:focus, #modal textarea:focus { border-color: var(--accent); }
+  #modal textarea { resize: vertical; min-height: 80px; }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-cancel {
+    background: none; border: 1px solid var(--border2);
+    border-radius: 7px; padding: 8px 18px;
+    font-size: 13px; cursor: pointer; color: var(--ink2);
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+  }
+  .btn-cancel:hover { background: var(--bg2); }
+  .btn-ok {
+    background: var(--accent); border: none;
+    border-radius: 7px; padding: 8px 18px;
+    font-size: 13px; cursor: pointer; color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .btn-ok:hover { background: var(--accent2); }
+
+  /* ── SETTINGS PANEL ── */
+  #settings-overlay {
+    position: fixed; inset: 0;
+    background: rgba(42,37,32,0.5);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #settings-overlay.show { display: flex; }
+  #settings-box {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 28px;
+    width: 440px;
+    box-shadow: 0 20px 60px var(--shadow2);
+    border: 1px solid var(--border);
+  }
+  #settings-box h3 { font-family: 'Fraunces', serif; font-size: 18px; margin-bottom: 6px; }
+  #settings-box p { font-size: 12px; color: var(--ink3); margin-bottom: 18px; }
+  #settings-box label { font-size: 12px; color: var(--ink3); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.8px; }
+  #settings-box input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.15s;
+  }
+  #settings-box input:focus { border-color: var(--accent); }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--ink);
+    color: #f5f0e8;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    z-index: 99999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ── SECTION COLORS ── */
+  .color-swatch {
+    display: inline-block;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s;
+  }
+  .color-swatch:hover, .color-swatch.selected { transform: scale(1.2); border-color: var(--ink); }
+  .swatches { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  /* ── NO SECTION STATE ── */
+  #no-section-state {
+    flex:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    color: var(--ink3); gap:12px; padding:40px; text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">notas<span>.</span></div>
+  <div id="topbar-spacer"></div>
+  <div id="sync-status">
+    <div id="sync-dot"></div>
+    <span id="sync-label">sem conexão</span>
+  </div>
+  <button id="btn-import">📥 Importar .docx</button>
+  <input type="file" id="file-import-input" accept=".docx" multiple>
+  <button id="btn-settings">⚙ Configurar Sheets</button>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      Seções
+      <button id="btn-new-section" title="Nova seção">+</button>
+    </div>
+    <div id="sections-list"></div>
+  </div>
+
+  <!-- PAGES PANEL -->
+  <div id="pages-panel">
+    <div id="pages-header">
+      <div id="pages-title">—</div>
+      <button id="btn-new-page" title="Nova página">+</button>
+    </div>
+    <div id="pages-search">
+      <input type="text" id="search-input" placeholder="Buscar páginas...">
+    </div>
+    <div id="pages-list"></div>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editor-area">
+    <div id="editor-topbar">
+      <input type="text" id="page-title-input" placeholder="Título da página..." autocomplete="off">
+    </div>
+    <div id="format-toolbar">
+      <!-- Text style -->
+      <select class="fmt-select" id="fmt-heading" title="Estilo">
+        <option value="">Parágrafo</option>
+        <option value="h1">Título 1</option>
+        <option value="h2">Título 2</option>
+        <option value="h3">Título 3</option>
+      </select>
+      <div class="fmt-sep"></div>
+      <button class="fmt-btn" data-cmd="bold" title="Negrito (Ctrl+B)"><b>N</b></button>
+      <button class="fmt-btn" data-cmd="italic" title="Itálico (Ctrl+I)"><i>I</i></button>
+      <button class="fmt-btn" data-cmd="underline" title="Sublinhado (Ctrl+U)"><u>S</u></button>
+      <button class="fmt-btn" data-cmd="strikeThrough" title="Tachado"><s>T</s></button>
+      <div class="fmt-sep"></div>
+      <!-- Lists -->
+      <button class="fmt-btn" data-cmd="insertUnorderedList" title="Lista com marcadores">☰</button>
+      <button class="fmt-btn" data-cmd="insertOrderedList" title="Lista numerada">1≡</button>
+      <button class="fmt-btn" data-cmd="formatBlock" data-val="blockquote" title="Citação">❝</button>
+      <div class="fmt-sep"></div>
+      <!-- Align -->
+      <button class="fmt-btn" data-cmd="justifyLeft" title="Esquerda">⬛</button>
+      <button class="fmt-btn" data-cmd="justifyCenter" title="Centro">▣</button>
+      <button class="fmt-btn" data-cmd="justifyRight" title="Direita">⬛</button>
+      <div class="fmt-sep"></div>
+      <!-- Colors -->
+      <label style="font-size:11px;color:var(--ink3);margin:0 2px">Texto:</label>
+      <input type="color" class="fmt-color-input" id="fmt-fgcolor" value="#2a2520" title="Cor do texto">
+      <label style="font-size:11px;color:var(--ink3);margin:0 2px">Fundo:</label>
+      <input type="color" class="fmt-color-input" id="fmt-bgcolor" value="#ffffff" title="Cor de fundo">
+      <div class="fmt-sep"></div>
+      <!-- Link / clear -->
+      <button class="fmt-btn" data-cmd="createLink" title="Inserir link">🔗</button>
+      <button class="fmt-btn" data-cmd="removeFormat" title="Remover formatação">✕</button>
+    </div>
+    <div id="editor-wrapper">
+      <div id="editor" contenteditable="false" data-placeholder="Selecione uma página para editar..."></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" id="ctx-rename">✏️ Renomear</div>
+  <div class="ctx-item" id="ctx-move">📁 Mover para seção</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" id="ctx-delete">🗑 Excluir</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h3 id="modal-title">Ação</h3>
+    <div id="modal-body"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" id="modal-cancel">Cancelar</button>
+      <button class="btn-ok" id="modal-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings-overlay">
+  <div id="settings-box">
+    <h3>⚙ Configuração do Google Sheets</h3>
+    <p>Configure o Apps Script para salvar e carregar suas notas na nuvem. Os dados ficam na sua planilha do Google Drive.</p>
+    <label>URL do Apps Script (Web App)</label>
+    <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/XXXX/exec">
+    <label>Chave secreta</label>
+    <input type="text" id="cfg-key" placeholder="minha_chave_secreta">
+    <div class="modal-btns" style="margin-top:4px">
+      <button class="btn-cancel" id="cfg-cancel">Cancelar</button>
+      <button class="btn-ok" id="cfg-test">Testar conexão</button>
+      <button class="btn-ok" id="cfg-save">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT PROGRESS -->
+<div id="import-progress">
+  <span id="imp-label">Importando...</span>
+  <div class="imp-bar-wrap"><div class="imp-bar" id="imp-bar"></div></div>
+  <span id="imp-count"></span>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const STORAGE_KEY = 'notas_app_v1';
+const SECTION_COLORS = ['#c0480a','#2d7a4f','#1a5f8a','#7a3fa0','#c49010','#c0306a','#3a7a6a','#555'];
+
+let state = {
+  sections: [],   // [{id, name, color, pages:[{id,title,content,createdAt,updatedAt}]}]
+  activeSectionId: null,
+  activePageId: null,
+};
+let cfg = { url:'', key:'' };
+let ctxTarget = null; // {type:'section'|'page', id}
+let saveTimer = null;
+let isSyncing = false;
+
+// ═══════════════════════════════════════════════
+// PERSISTENCE: LOCAL
+// ═══════════════════════════════════════════════
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = JSON.parse(raw);
+  } catch(e) {}
+  try {
+    const c = localStorage.getItem(STORAGE_KEY+'_cfg');
+    if (c) cfg = JSON.parse(c);
+  } catch(e) {}
+}
+
+function saveLocal() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveCfg() {
+  localStorage.setItem(STORAGE_KEY+'_cfg', JSON.stringify(cfg));
+}
+
+// ═══════════════════════════════════════════════
+// PERSISTENCE: GOOGLE SHEETS
+// ═══════════════════════════════════════════════
+function setSyncStatus(status, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = '';
+  if(status) dot.classList.add(status);
+  lbl.textContent = label;
+}
+
+// JSONP helper — resolve CORS quando rodando como arquivo local
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('timeout'));
+    }, 12000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    script.src = url + '&callback=' + cbName;
+    script.onerror = () => { cleanup(); reject(new Error('script error')); };
+    document.head.appendChild(script);
+  });
+}
+
+async function syncToSheets() {
+  if (!cfg.url || !cfg.key) return;
+  if (isSyncing) return;
+  isSyncing = true;
+  setSyncStatus('busy', 'salvando...');
+  try {
+    const url = cfg.url
+      + '?action=save'
+      + '&key=' + encodeURIComponent(cfg.key)
+      + '&data=' + encodeURIComponent(JSON.stringify(state));
+    const result = await jsonp(url);
+    if (result && result.ok) {
+      setSyncStatus('ok', 'salvo ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    } else {
+      setSyncStatus('err', 'erro ao salvar');
+    }
+  } catch(e) {
+    setSyncStatus('err', 'erro ao salvar');
+  }
+  isSyncing = false;
+}
+
+async function loadFromSheets() {
+  if (!cfg.url || !cfg.key) return false;
+  setSyncStatus('busy', 'carregando...');
+  try {
+    const url = cfg.url
+      + '?action=load'
+      + '&key=' + encodeURIComponent(cfg.key);
+    const remote = await jsonp(url);
+    if (remote && remote.sections) {
+      state = remote;
+      saveLocal();
+      setSyncStatus('ok', 'carregado');
+      return true;
+    }
+    setSyncStatus('err', 'dado inválido');
+    return false;
+  } catch(e) {
+    setSyncStatus('err', 'sem conexão');
+    return false;
+  }
+}
+
+function scheduleSave() {
+  saveLocal();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => syncToSheets(), 2000);
+}
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
+
+function getSection(id) { return state.sections.find(s=>s.id===id); }
+function getPage(sectionId, pageId) {
+  const s = getSection(sectionId);
+  return s ? s.pages.find(p=>p.id===pageId) : null;
+}
+function getActivePage() {
+  return getPage(state.activeSectionId, state.activePageId);
+}
+function stripHtml(html) {
+  return (html||'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim().slice(0,60);
+}
+
+function showToast(msg, dur=2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function renderSections() {
+  const list = document.getElementById('sections-list');
+  list.innerHTML = '';
+  state.sections.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'section-item' + (sec.id===state.activeSectionId?' active':'');
+    div.dataset.id = sec.id;
+    div.innerHTML = `
+      <div class="sec-color" style="background:${sec.color||'#888'}"></div>
+      <div class="sec-name">${esc(sec.name)}</div>
+      <div class="sec-count">${sec.pages.length}</div>
+      <button class="sec-menu-btn" data-id="${sec.id}" title="Opções">⋯</button>
+    `;
+    div.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('sec-menu-btn')) return;
+      selectSection(sec.id);
+    });
+    div.querySelector('.sec-menu-btn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      showCtxMenu(e, {type:'section', id:sec.id});
+    });
+    list.appendChild(div);
+  });
+}
+
+function renderPages(filterText='') {
+  const list = document.getElementById('pages-list');
+  list.innerHTML = '';
+  const sec = getSection(state.activeSectionId);
+  if (!sec) return;
+
+  const q = filterText.toLowerCase();
+  const pages = sec.pages.filter(p =>
+    !q || p.title.toLowerCase().includes(q) || stripHtml(p.content).toLowerCase().includes(q)
+  );
+
+  if (pages.length===0) {
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ink3);font-size:13px;">${q?'Nenhum resultado':'Nenhuma página ainda'}</div>`;
+    return;
+  }
+
+  pages.forEach(pg => {
+    const div = document.createElement('div');
+    div.className = 'page-card' + (pg.id===state.activePageId?' active':'');
+    div.dataset.id = pg.id;
+    const date = pg.updatedAt ? new Date(pg.updatedAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '';
+    div.innerHTML = `
+      <div class="pg-title">${esc(pg.title)||'(sem título)'}</div>
+      <div class="pg-preview">${esc(stripHtml(pg.content))||'...'}</div>
+      <div class="pg-date">${date}</div>
+      <button class="pg-menu-btn" data-id="${pg.id}" title="Opções">⋯</button>
+    `;
+    div.addEventListener('click', (e)=>{
+      if(e.target.classList.contains('pg-menu-btn')) return;
+      selectPage(pg.id);
+    });
+    div.querySelector('.pg-menu-btn').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      showCtxMenu(e, {type:'page', id:pg.id});
+    });
+    list.appendChild(div);
+  });
+}
+
+function renderEditor() {
+  const pg = getActivePage();
+  const editor = document.getElementById('editor');
+  const titleInput = document.getElementById('page-title-input');
+  if (!pg) {
+    editor.contentEditable = 'false';
+    editor.innerHTML = '';
+    editor.dataset.placeholder = 'Selecione uma página para editar...';
+    titleInput.value = '';
+    titleInput.disabled = true;
+    return;
+  }
+  titleInput.disabled = false;
+  titleInput.value = pg.title || '';
+  editor.contentEditable = 'true';
+  editor.dataset.placeholder = 'Escreva aqui...';
+  // só atualiza se o conteúdo mudou externamente
+  if (editor.innerHTML !== (pg.content||'')) {
+    editor.innerHTML = pg.content || '';
+  }
+}
+
+function renderPagesTitle() {
+  const sec = getSection(state.activeSectionId);
+  document.getElementById('pages-title').textContent = sec ? sec.name : '—';
+}
+
+function render() {
+  renderSections();
+  renderPagesTitle();
+  renderPages(document.getElementById('search-input').value);
+  renderEditor();
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════
+// SELECTION
+// ═══════════════════════════════════════════════
+function selectSection(id) {
+  flushEditorToState();
+  state.activeSectionId = id;
+  state.activePageId = null;
+  render();
+}
+
+function selectPage(id) {
+  flushEditorToState();
+  state.activePageId = id;
+  render();
+  document.getElementById('editor').focus();
+}
+
+// ═══════════════════════════════════════════════
+// FLUSH EDITOR
+// ═══════════════════════════════════════════════
+function flushEditorToState() {
+  const pg = getActivePage();
+  if (!pg) return;
+  pg.content = document.getElementById('editor').innerHTML;
+  pg.title = document.getElementById('page-title-input').value;
+  pg.updatedAt = Date.now();
+}
+
+// ═══════════════════════════════════════════════
+// CONTEXT MENU
+// ═══════════════════════════════════════════════
+function showCtxMenu(e, target) {
+  ctxTarget = target;
+  const menu = document.getElementById('ctx-menu');
+  const move = document.getElementById('ctx-move');
+  move.style.display = target.type==='page' ? 'flex' : 'none';
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
+  menu.classList.add('show');
+  e.stopPropagation();
+}
+
+document.addEventListener('click', ()=>document.getElementById('ctx-menu').classList.remove('show'));
+
+document.getElementById('ctx-rename').addEventListener('click', ()=>{
+  if(!ctxTarget) return;
+  if(ctxTarget.type==='section') renameSection(ctxTarget.id);
+  else renamePage(ctxTarget.id);
+});
+document.getElementById('ctx-delete').addEventListener('click', ()=>{
+  if(!ctxTarget) return;
+  if(ctxTarget.type==='section') deleteSection(ctxTarget.id);
+  else deletePage(ctxTarget.id);
+});
+document.getElementById('ctx-move').addEventListener('click', ()=>{
+  if(ctxTarget && ctxTarget.type==='page') movePage(ctxTarget.id);
+});
+
+// ═══════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════
+function openModal(title, bodyHTML, onOk) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = bodyHTML;
+  document.getElementById('modal-overlay').classList.add('show');
+  const ok = document.getElementById('modal-ok');
+  const cancel = document.getElementById('modal-cancel');
+  const close = () => document.getElementById('modal-overlay').classList.remove('show');
+  ok.onclick = () => { if(onOk()) close(); };
+  cancel.onclick = close;
+  // Focus first input
+  setTimeout(()=>{
+    const inp = document.querySelector('#modal-body input, #modal-body select');
+    if(inp) inp.focus();
+  }, 50);
+}
+
+// ═══════════════════════════════════════════════
+// SECTION ACTIONS
+// ═══════════════════════════════════════════════
+const DEFAULT_COLOR = '#c0480a';
+
+function newSection() {
+  let chosenColor = DEFAULT_COLOR;
+  const swatchesHtml = SECTION_COLORS.map((c,i)=>
+    `<div class="color-swatch${i===0?' selected':''}" style="background:${c}" data-color="${c}" onclick="document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');"></div>`
+  ).join('');
+  openModal('Nova Seção',
+    `<label>Nome da seção</label>
+     <input type="text" id="new-sec-name" placeholder="Ex: Trabalho, Pessoal..." maxlength="60">
+     <label>Cor</label>
+     <div class="swatches">${swatchesHtml}</div>`,
+    () => {
+      const name = document.getElementById('new-sec-name').value.trim();
+      if(!name) { showToast('Digite um nome'); return false; }
+      const sel = document.querySelector('.color-swatch.selected');
+      const color = sel ? sel.dataset.color : DEFAULT_COLOR;
+      const sec = { id: uid(), name, color, pages: [] };
+      state.sections.push(sec);
+      state.activeSectionId = sec.id;
+      state.activePageId = null;
+      render();
+      scheduleSave();
+      return true;
+    }
+  );
+}
+
+function renameSection(id) {
+  const sec = getSection(id);
+  if(!sec) return;
+  const swatchesHtml = SECTION_COLORS.map(c=>
+    `<div class="color-swatch${c===sec.color?' selected':''}" style="background:${c}" data-color="${c}" onclick="document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');"></div>`
+  ).join('');
+  openModal('Renomear Seção',
+    `<label>Novo nome</label>
+     <input type="text" id="ren-sec-name" value="${esc(sec.name)}" maxlength="60">
+     <label>Cor</label>
+     <div class="swatches">${swatchesHtml}</div>`,
+    () => {
+      const name = document.getElementById('ren-sec-name').value.trim();
+      if(!name) { showToast('Digite um nome'); return false; }
+      const sel = document.querySelector('.color-swatch.selected');
+      sec.name = name;
+      if(sel) sec.color = sel.dataset.color;
+      render();
+      scheduleSave();
+      return true;
+    }
+  );
+}
+
+function deleteSection(id) {
+  const sec = getSection(id);
+  if(!sec) return;
+  openModal('Excluir Seção',
+    `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Excluir <strong>${esc(sec.name)}</strong> e todas as suas ${sec.pages.length} página(s)? Esta ação não pode ser desfeita.</p>`,
+    () => {
+      state.sections = state.sections.filter(s=>s.id!==id);
+      if(state.activeSectionId===id) { state.activeSectionId=null; state.activePageId=null; }
+      render();
+      scheduleSave();
+      return true;
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════
+// PAGE ACTIONS
+// ═══════════════════════════════════════════════
+function newPage() {
+  const sec = getSection(state.activeSectionId);
+  if(!sec) { showToast('Selecione uma seção primeiro'); return; }
+  const pg = { id: uid(), title: 'Nova página', content: '', createdAt: Date.now(), updatedAt: Date.now() };
+  sec.pages.unshift(pg);
+  state.activePageId = pg.id;
+  render();
+  scheduleSave();
+  // select title for editing
+  setTimeout(()=>{
+    const t = document.getElementById('page-title-input');
+    t.select();
+  }, 50);
+}
+
+function renamePage(id) {
+  const sec = getSection(state.activeSectionId);
+  if(!sec) return;
+  const pg = sec.pages.find(p=>p.id===id);
+  if(!pg) return;
+  openModal('Renomear Página',
+    `<label>Título</label>
+     <input type="text" id="ren-pg-title" value="${esc(pg.title)}" maxlength="120">`,
+    () => {
+      const t = document.getElementById('ren-pg-title').value.trim();
+      if(!t) { showToast('Digite um título'); return false; }
+      pg.title = t;
+      if(state.activePageId===id) document.getElementById('page-title-input').value = t;
+      renderPages();
+      scheduleSave();
+      return true;
+    }
+  );
+}
+
+function deletePage(id) {
+  const sec = getSection(state.activeSectionId);
+  if(!sec) return;
+  const pg = sec.pages.find(p=>p.id===id);
+  if(!pg) return;
+  openModal('Excluir Página',
+    `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Excluir <strong>${esc(pg.title)}</strong>? Esta ação não pode ser desfeita.</p>`,
+    () => {
+      sec.pages = sec.pages.filter(p=>p.id!==id);
+      if(state.activePageId===id) { state.activePageId=null; renderEditor(); }
+      renderPages();
+      scheduleSave();
+      return true;
+    }
+  );
+}
+
+function movePage(id) {
+  const srcSec = getSection(state.activeSectionId);
+  if(!srcSec) return;
+  const pg = srcSec.pages.find(p=>p.id===id);
+  if(!pg) return;
+  const otherSections = state.sections.filter(s=>s.id!==state.activeSectionId);
+  if(otherSections.length===0) { showToast('Não há outras seções'); return; }
+  const opts = otherSections.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  openModal('Mover Página',
+    `<label>Mover para</label>
+     <select id="move-to-sec">${opts}</select>`,
+    () => {
+      const destId = document.getElementById('move-to-sec').value;
+      const destSec = getSection(destId);
+      if(!destSec) return false;
+      srcSec.pages = srcSec.pages.filter(p=>p.id!==id);
+      destSec.pages.unshift(pg);
+      if(state.activePageId===id) { state.activePageId=null; }
+      render();
+      scheduleSave();
+      showToast(`Página movida para "${destSec.name}"`);
+      return true;
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════
+// EDITOR EVENTS
+// ═══════════════════════════════════════════════
+const editor = document.getElementById('editor');
+const titleInput = document.getElementById('page-title-input');
+
+editor.addEventListener('input', () => {
+  flushEditorToState();
+  scheduleSave();
+  // update preview in list
+  const pg = getActivePage();
+  if(pg) {
+    const card = document.querySelector(`.page-card[data-id="${pg.id}"] .pg-preview`);
+    if(card) card.textContent = stripHtml(pg.content) || '...';
+  }
+});
+
+titleInput.addEventListener('input', () => {
+  const pg = getActivePage();
+  if(pg) {
+    pg.title = titleInput.value;
+    pg.updatedAt = Date.now();
+    const card = document.querySelector(`.page-card[data-id="${pg.id}"] .pg-title`);
+    if(card) card.textContent = pg.title || '(sem título)';
+    scheduleSave();
+  }
+});
+
+// ═══════════════════════════════════════════════
+// FORMAT TOOLBAR
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.fmt-btn[data-cmd]').forEach(btn => {
+  btn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const cmd = btn.dataset.cmd;
+    const val = btn.dataset.val || null;
+    if(cmd==='createLink') {
+      const url = prompt('URL do link:');
+      if(url) document.execCommand('createLink', false, url);
+    } else if(cmd==='formatBlock' && val) {
+      document.execCommand('formatBlock', false, val);
+    } else {
+      document.execCommand(cmd, false, val);
+    }
+    updateToolbarState();
+  });
+});
+
+document.getElementById('fmt-heading').addEventListener('change', (e) => {
+  const val = e.target.value;
+  if(val) document.execCommand('formatBlock', false, val);
+  else document.execCommand('formatBlock', false, 'p');
+  editor.focus();
+});
+
+document.getElementById('fmt-fgcolor').addEventListener('input', (e) => {
+  document.execCommand('foreColor', false, e.target.value);
+});
+document.getElementById('fmt-bgcolor').addEventListener('input', (e) => {
+  document.execCommand('hiliteColor', false, e.target.value);
+});
+
+function updateToolbarState() {
+  ['bold','italic','underline','strikeThrough','insertUnorderedList','insertOrderedList'].forEach(cmd => {
+    const btn = document.querySelector(`.fmt-btn[data-cmd="${cmd}"]`);
+    if(btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+  });
+}
+editor.addEventListener('keyup', updateToolbarState);
+editor.addEventListener('mouseup', updateToolbarState);
+
+// ═══════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════
+document.getElementById('search-input').addEventListener('input', (e) => {
+  renderPages(e.target.value);
+});
+
+// ═══════════════════════════════════════════════
+// BUTTONS
+// ═══════════════════════════════════════════════
+document.getElementById('btn-new-section').addEventListener('click', newSection);
+document.getElementById('btn-new-page').addEventListener('click', newPage);
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+document.getElementById('btn-settings').addEventListener('click', () => {
+  document.getElementById('cfg-url').value = cfg.url || '';
+  document.getElementById('cfg-key').value = cfg.key || '';
+  document.getElementById('settings-overlay').classList.add('show');
+});
+document.getElementById('cfg-cancel').addEventListener('click', ()=>document.getElementById('settings-overlay').classList.remove('show'));
+document.getElementById('cfg-save').addEventListener('click', () => {
+  cfg.url = document.getElementById('cfg-url').value.trim();
+  cfg.key = document.getElementById('cfg-key').value.trim();
+  saveCfg();
+  document.getElementById('settings-overlay').classList.remove('show');
+  showToast('Configurações salvas!');
+  syncToSheets();
+});
+document.getElementById('cfg-test').addEventListener('click', async () => {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if(!url||!key){ showToast('Preencha URL e chave'); return; }
+  const old = cfg;
+  cfg = {url, key};
+  const ok = await loadFromSheets();
+  if(ok) { showToast('✅ Conexão OK! Dados carregados.'); render(); }
+  else showToast('❌ Falha na conexão. Verifique URL e chave.');
+  cfg = {url: document.getElementById('cfg-url').value.trim(), key: document.getElementById('cfg-key').value.trim()};
+});
+
+// ═══════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if((e.ctrlKey||e.metaKey) && e.key==='s') {
+    e.preventDefault();
+    flushEditorToState();
+    syncToSheets();
+    showToast('Sincronizando...');
+  }
+});
+
+// ═══════════════════════════════════════════════
+// DOCX IMPORT
+// ═══════════════════════════════════════════════
+document.getElementById('btn-import').addEventListener('click', () => {
+  document.getElementById('file-import-input').click();
+});
+
+document.getElementById('file-import-input').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+  e.target.value = ''; // reset so same file can be re-imported
+
+  const prog = document.getElementById('import-progress');
+  const bar  = document.getElementById('imp-bar');
+  const lbl  = document.getElementById('imp-label');
+  const cnt  = document.getElementById('imp-count');
+
+  prog.classList.add('show');
+  let done = 0;
+
+  for (const file of files) {
+    lbl.textContent = `Importando: ${file.name}`;
+    cnt.textContent = `${done+1}/${files.length}`;
+    bar.style.width = (done / files.length * 100) + '%';
+
+    try {
+      await importDocx(file);
+    } catch(err) {
+      showToast(`Erro ao importar ${file.name}`);
+      console.error(err);
+    }
+    done++;
+    bar.style.width = (done / files.length * 100) + '%';
+  }
+
+  prog.classList.remove('show');
+  render();
+  scheduleSave();
+  showToast(`✅ ${done} arquivo(s) importado(s) com sucesso!`);
+});
+
+async function importDocx(file) {
+  // Read file as ArrayBuffer
+  const arrayBuffer = await file.arrayBuffer();
+
+  // Convert with mammoth
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+  const html = result.value;
+
+  // Section name = filename without extension
+  const secName = file.name.replace(/\.docx$/i, '');
+
+  // Pick a color
+  const colorIdx = state.sections.length % SECTION_COLORS.length;
+  const sec = {
+    id: uid(),
+    name: secName,
+    color: SECTION_COLORS[colorIdx],
+    pages: []
+  };
+
+  // Split into pages by H1 headings
+  const pages = splitHtmlByHeadings(html, secName);
+  sec.pages = pages;
+
+  state.sections.push(sec);
+  state.activeSectionId = sec.id;
+  state.activePageId = sec.pages.length > 0 ? sec.pages[0].id : null;
+}
+
+function splitHtmlByHeadings(html, fallbackTitle) {
+  // Parse into DOM
+  const parser = new DOMParser();
+  const doc = parser.parseFromString('<div id="root">' + html + '</div>', 'text/html');
+  const root = doc.getElementById('root');
+  const children = Array.from(root.children);
+
+  if (children.length === 0) {
+    return [{
+      id: uid(), title: fallbackTitle, content: html,
+      createdAt: Date.now(), updatedAt: Date.now()
+    }];
+  }
+
+  const pages = [];
+  let currentTitle = fallbackTitle;
+  let currentContent = [];
+  let hasH1 = children.some(el => el.tagName === 'H1');
+
+  // If no H1, treat whole doc as one page
+  if (!hasH1) {
+    return [{
+      id: uid(),
+      title: fallbackTitle,
+      content: root.innerHTML,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }];
+  }
+
+  // Split on H1
+  for (const el of children) {
+    if (el.tagName === 'H1') {
+      // Save previous page if has content
+      if (currentContent.length > 0) {
+        pages.push({
+          id: uid(),
+          title: currentTitle,
+          content: currentContent.map(n => n.outerHTML).join(''),
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      }
+      currentTitle = el.textContent.trim() || fallbackTitle;
+      currentContent = [];
+    } else {
+      currentContent.push(el);
+    }
+  }
+
+  // Last page
+  if (currentContent.length > 0 || pages.length === 0) {
+    pages.push({
+      id: uid(),
+      title: currentTitle,
+      content: currentContent.map(n => n.outerHTML).join('') || '',
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    });
+  }
+
+  return pages;
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+async function init() {
+  loadLocal();
+
+  // Try loading from Sheets
+  if(cfg.url && cfg.key) {
+    const ok = await loadFromSheets();
+    if(!ok) setSyncStatus('err', 'offline (local)');
+  } else {
+    setSyncStatus('', 'local — configure Sheets');
+  }
+
+  // If empty, add welcome section
+  if(state.sections.length===0) {
+    const sec = {id:uid(), name:'Bem-vindo', color:'#c0480a', pages:[]};
+    const pg = {id:uid(), title:'Introdução', content:`<h2>Bem-vindo ao <b>notas.</b></h2><p>Esta é sua primeira página. Use a barra lateral para criar seções e páginas.</p><p>Você pode formatar o texto com a barra de ferramentas acima: <b>negrito</b>, <i>itálico</i>, <u>sublinhado</u> e muito mais.</p><p>Configure o Google Sheets em <b>⚙ Configurar Sheets</b> para salvar na nuvem.</p>`, createdAt:Date.now(), updatedAt:Date.now()};
+    sec.pages.push(pg);
+    state.sections.push(sec);
+    state.activeSectionId = sec.id;
+    state.activePageId = pg.id;
+    saveLocal();
+  }
+
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
