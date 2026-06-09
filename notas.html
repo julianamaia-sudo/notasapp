@@ -1441,40 +1441,48 @@ async function importDocx(file) {
 }
 
 function splitHtmlByHeadings(html, fallbackTitle) {
-  // Parse into DOM
   const parser = new DOMParser();
   const doc = parser.parseFromString('<div id="root">' + html + '</div>', 'text/html');
   const root = doc.getElementById('root');
   const children = Array.from(root.children);
 
   if (children.length === 0) {
-    return [{
-      id: uid(), title: fallbackTitle, content: html,
-      createdAt: Date.now(), updatedAt: Date.now()
-    }];
+    return [{ id: uid(), title: fallbackTitle, content: html, createdAt: Date.now(), updatedAt: Date.now() }];
+  }
+
+  // Detecta se o elemento é um separador de página do OneNote
+  // Suporta: <h1>, <h2>, ou <p># TÍTULO</p> (padrão do OneNote exportado)
+  function isPageBreak(el) {
+    if (el.tagName === 'H1' || el.tagName === 'H2') return true;
+    if (el.tagName === 'P') {
+      const txt = el.textContent.trim();
+      if (txt.startsWith('# ')) return true;
+    }
+    return false;
+  }
+
+  function getPageTitle(el) {
+    const txt = el.textContent.trim();
+    if (txt.startsWith('# ')) return txt.slice(2).trim();
+    return txt;
+  }
+
+  const hasBreak = children.some(el => isPageBreak(el));
+
+  // Se não tiver nenhum separador, tudo numa página só
+  if (!hasBreak) {
+    return [{ id: uid(), title: fallbackTitle, content: root.innerHTML, createdAt: Date.now(), updatedAt: Date.now() }];
   }
 
   const pages = [];
   let currentTitle = fallbackTitle;
   let currentContent = [];
-  let hasH1 = children.some(el => el.tagName === 'H1');
+  let firstBreakFound = false;
 
-  // If no H1, treat whole doc as one page
-  if (!hasH1) {
-    return [{
-      id: uid(),
-      title: fallbackTitle,
-      content: root.innerHTML,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }];
-  }
-
-  // Split on H1
   for (const el of children) {
-    if (el.tagName === 'H1') {
-      // Save previous page if has content
-      if (currentContent.length > 0) {
+    if (isPageBreak(el)) {
+      // Salva página anterior se tiver conteúdo (ou se já achou pelo menos um break)
+      if (firstBreakFound) {
         pages.push({
           id: uid(),
           title: currentTitle,
@@ -1483,25 +1491,27 @@ function splitHtmlByHeadings(html, fallbackTitle) {
           updatedAt: Date.now()
         });
       }
-      currentTitle = el.textContent.trim() || fallbackTitle;
+      currentTitle = getPageTitle(el) || fallbackTitle;
       currentContent = [];
+      firstBreakFound = true;
     } else {
+      // Ignora parágrafos vazios ou só com espaço no início
+      const isEmpty = el.textContent.trim() === '' || el.textContent.trim() === '\u00a0';
+      if (!firstBreakFound && isEmpty) continue;
       currentContent.push(el);
     }
   }
 
-  // Last page
-  if (currentContent.length > 0 || pages.length === 0) {
-    pages.push({
-      id: uid(),
-      title: currentTitle,
-      content: currentContent.map(n => n.outerHTML).join('') || '',
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    });
-  }
+  // Última página
+  pages.push({
+    id: uid(),
+    title: currentTitle,
+    content: currentContent.map(n => n.outerHTML).join('') || '',
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
 
-  return pages;
+  return pages.filter(p => p.title.trim() !== '');
 }
 
 // ═══════════════════════════════════════════════
