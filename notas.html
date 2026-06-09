@@ -861,14 +861,19 @@ async function loadFromSheets() {
       + '?action=load'
       + '&key=' + encodeURIComponent(cfg.key);
     const remote = await jsonp(url);
+    if (remote && remote.error) {
+      setSyncStatus('err', 'chave inválida');
+      return false;
+    }
     if (remote && remote.sections) {
       state = remote;
       saveLocal();
       setSyncStatus('ok', 'carregado');
       return true;
     }
-    setSyncStatus('err', 'dado inválido');
-    return false;
+    // Resposta vazia = sheets vazio = conexão ok
+    setSyncStatus('ok', 'conectado');
+    return true;
   } catch(e) {
     setSyncStatus('err', 'sem conexão');
     return false;
