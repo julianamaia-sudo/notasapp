@@ -416,26 +416,33 @@ function jsonp(url){
     document.head.appendChild(s);
   });
 }
-// Salva via JSONP em chunks (resolve CORS e limite de tamanho)
-const CHUNK_SIZE = 4000; // chars por chunk — seguro para URL do Apps Script
+// Salva via JSONP em chunks por linha no Sheets
+const CHUNK_SIZE = 3000; // chars por chunk — conservador para segurança na URL
 
 async function postToSheets(url, key, data) {
   const chunks = [];
   for (let i = 0; i < data.length; i += CHUNK_SIZE) {
     chunks.push(data.slice(i, i + CHUNK_SIZE));
   }
-  // Salva chunk por chunk via JSONP
+  // Passo 1: salva metadado (total de chunks) e limpa sheet
+  const metaUrl = url
+    + '?action=save_meta'
+    + '&key='   + encodeURIComponent(key)
+    + '&total=' + chunks.length;
+  const metaResult = await jsonp(metaUrl);
+  if (metaResult && metaResult.error) throw new Error('Meta: ' + metaResult.error);
+  await new Promise(r => setTimeout(r, 400));
+
+  // Passo 2: salva cada chunk numa linha separada
   for (let i = 0; i < chunks.length; i++) {
     const chunkUrl = url
       + '?action=save_chunk'
       + '&key='   + encodeURIComponent(key)
       + '&idx='   + i
-      + '&total=' + chunks.length
       + '&chunk=' + encodeURIComponent(chunks[i]);
     const result = await jsonp(chunkUrl);
     if (result && result.error) throw new Error('Chunk ' + i + ': ' + result.error);
-    // Pequena pausa entre chunks para não sobrecarregar o Apps Script
-    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
+    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 350));
   }
   return true;
 }
