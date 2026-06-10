@@ -221,7 +221,7 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
   <button class="tb-btn" id="btn-import">📥 Importar .docx</button>
   <input type="file" id="file-import-input" accept=".docx" multiple>
   <button class="tb-btn" id="btn-bday" title="Aniversários do time">🎂 Aniversários</button>
-  <button class="tb-btn" id="btn-settings">⚙ Sheets</button>
+
 </div>
 
 <div id="layout">
@@ -326,22 +326,7 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
   </div>
 </div>
 
-<!-- SETTINGS -->
-<div id="settings-overlay">
-  <div id="settings-box">
-    <h3>⚙ Configuração do Google Sheets</h3>
-    <p>Configure o Apps Script para salvar e carregar suas notas na nuvem.</p>
-    <label>URL do Apps Script (Web App)</label>
-    <input type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/XXXX/exec">
-    <label>Chave secreta</label>
-    <input type="text" id="cfg-key" placeholder="minha_chave_secreta">
-    <div class="modal-btns" style="margin-top:4px">
-      <button class="btn-cancel" id="cfg-cancel">Cancelar</button>
-      <button class="btn-ok" id="cfg-test">Testar conexão</button>
-      <button class="btn-ok" id="cfg-save">Salvar</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- IMPORT PROGRESS -->
 <div id="import-progress">
@@ -383,77 +368,27 @@ function saveLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 function saveCfg()   { localStorage.setItem(STORAGE_KEY+'_cfg', JSON.stringify(cfg)); }
 
 // ═══════════════════════════════════════
-// SHEETS (JSONP load + POST save)
+// ── JSONBin.io backend ──
 // ═══════════════════════════════════════
+const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/6a29bbecda38895dfea8d688';
+const JSONBIN_KEY = '$2a$10$pkItUQ.BdvTZE79HbxqKxezm5d8hmetuqo6vWS4WzCdsIBVPh9MKK';
+
 function setSyncStatus(s,l){
   const dot=document.getElementById('sync-dot'), lbl=document.getElementById('sync-label');
   dot.className=''; if(s) dot.classList.add(s); lbl.textContent=l;
 }
-function jsonp(url){
-  return new Promise((resolve,reject)=>{
-    const cb='jcb_x'+Math.floor(Math.random()*1e9)+'_'+Date.now();
-    // Registra callback ANTES de criar o script
-    window[cb]=(d)=>{
-      clearTimeout(t);
-      try{delete window[cb];}catch(e){}
-      if(s.parentNode) s.parentNode.removeChild(s);
-      resolve(d);
-    };
-    const s=document.createElement('script');
-    s.src=url+'&callback='+cb;
-    s.onerror=()=>{
-      clearTimeout(t);
-      try{delete window[cb];}catch(e){}
-      if(s.parentNode) s.parentNode.removeChild(s);
-      reject(new Error('script error'));
-    };
-    // Timeout após registrar callback e criar script
-    const t=setTimeout(()=>{
-      try{delete window[cb];}catch(e){}
-      if(s.parentNode) s.parentNode.removeChild(s);
-      reject(new Error('timeout'));
-    },15000);
-    document.head.appendChild(s);
-  });
-}
-// Salva via JSONP em chunks por linha no Sheets
-const CHUNK_SIZE = 3000; // chars por chunk — conservador para segurança na URL
-
-async function postToSheets(url, key, data) {
-  const chunks = [];
-  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-    chunks.push(data.slice(i, i + CHUNK_SIZE));
-  }
-  // Passo 1: salva metadado (total de chunks) e limpa sheet
-  const metaUrl = url
-    + '?action=save_meta'
-    + '&key='   + encodeURIComponent(key)
-    + '&total=' + chunks.length;
-  const metaResult = await jsonp(metaUrl);
-  if (metaResult && metaResult.error) throw new Error('Meta: ' + metaResult.error);
-  await new Promise(r => setTimeout(r, 400));
-
-  // Passo 2: salva cada chunk numa linha separada
-  for (let i = 0; i < chunks.length; i++) {
-    const chunkUrl = url
-      + '?action=save_chunk'
-      + '&key='   + encodeURIComponent(key)
-      + '&idx='   + i
-      + '&chunk=' + encodeURIComponent(chunks[i]);
-    const result = await jsonp(chunkUrl);
-    if (result && result.error) throw new Error('Chunk ' + i + ': ' + result.error);
-    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 350));
-  }
-  return true;
-}
 async function syncToSheets(){
-  if(!cfg.url||!cfg.key||isSyncing) return;
+  if(isSyncing) return;
   isSyncing=true;
-  const data=JSON.stringify(state);
-  const kb=Math.round(data.length/1024);
+  const kb=Math.round(JSON.stringify(state).length/1024);
   setSyncStatus('busy','salvando ('+kb+'kb)...');
   try{
-    await postToSheets(cfg.url,cfg.key,data);
+    const resp=await fetch(JSONBIN_URL,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Versioning':'false'},
+      body:JSON.stringify(state)
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
     setSyncStatus('ok','salvo '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){
     console.error('Sync error:',e);
@@ -462,15 +397,28 @@ async function syncToSheets(){
   isSyncing=false;
 }
 async function loadFromSheets(){
-  if(!cfg.url||!cfg.key) return false;
   setSyncStatus('busy','carregando...');
   try{
-    const url=cfg.url+'?action=load&key='+encodeURIComponent(cfg.key);
-    const r=await jsonp(url);
-    if(r&&r.error){setSyncStatus('err','chave inválida');return false;}
-    if(r&&r.sections){state=r;if(!state.birthdays)state.birthdays=[];saveLocal();setSyncStatus('ok','carregado');return true;}
-    setSyncStatus('ok','conectado'); return true;
-  }catch(e){setSyncStatus('err','sem conexão');return false;}
+    const resp=await fetch(JSONBIN_URL+'/latest',{
+      headers:{'X-Master-Key':JSONBIN_KEY}
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const json=await resp.json();
+    const data=json.record||json;
+    if(data&&data.sections){
+      state=data;
+      if(!state.birthdays) state.birthdays=[];
+      saveLocal();
+      setSyncStatus('ok','carregado');
+      return true;
+    }
+    setSyncStatus('ok','conectado');
+    return true;
+  }catch(e){
+    console.error('Load error:',e);
+    setSyncStatus('err','sem conexão');
+    return false;
+  }
 }
 function scheduleSave(){saveLocal();clearTimeout(saveTimer);saveTimer=setTimeout(()=>syncToSheets(),2000);}
 
@@ -948,27 +896,7 @@ function renderBirthdayPanel(){
 // ═══════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════
-document.getElementById('btn-settings').addEventListener('click',()=>{
-  document.getElementById('cfg-url').value=cfg.url||'';
-  document.getElementById('cfg-key').value=cfg.key||'';
-  document.getElementById('settings-overlay').classList.add('show');
-});
-document.getElementById('cfg-cancel').addEventListener('click',()=>document.getElementById('settings-overlay').classList.remove('show'));
-document.getElementById('cfg-save').addEventListener('click',()=>{
-  cfg.url=document.getElementById('cfg-url').value.trim();
-  cfg.key=document.getElementById('cfg-key').value.trim();
-  saveCfg();document.getElementById('settings-overlay').classList.remove('show');
-  showToast('Configurações salvas!');syncToSheets();
-});
-document.getElementById('cfg-test').addEventListener('click',async()=>{
-  const url=document.getElementById('cfg-url').value.trim();
-  const key=document.getElementById('cfg-key').value.trim();
-  if(!url||!key){showToast('Preencha URL e chave');return;}
-  cfg={url,key};
-  const ok=await loadFromSheets();
-  if(ok){showToast('✅ Conexão OK!');render();}
-  else showToast('❌ Falha na conexão.');
-});
+
 
 // ═══════════════════════════════════════
 // IMPORT DOCX
@@ -1031,12 +959,8 @@ function splitHtmlByHeadings(html,fallbackTitle){
 // ═══════════════════════════════════════
 async function init(){
   loadLocal();
-  if(cfg.url&&cfg.key){
-    const ok=await loadFromSheets();
-    if(!ok)setSyncStatus('err','offline (local)');
-  } else {
-    setSyncStatus('','local — configure Sheets');
-  }
+  const ok=await loadFromSheets();
+  if(!ok) setSyncStatus('err','offline (local)');
   if(!state.sections.length){
     const sec={id:uid(),name:'Bem-vindo',color:'#c0480a',pages:[],pinned:false};
     const pg={id:uid(),title:'Introdução',content:`<h2>Bem-vindo ao <b>notas.</b></h2><p>Crie seções na barra lateral e páginas dentro delas.</p><p><b>Dica:</b> arraste seções e páginas para reordenar. Clique com botão direito para fixar no topo, renomear ou excluir.</p><p>Clique em 🎂 <b>Aniversários</b> para abrir o painel do time.</p>`,createdAt:Date.now(),updatedAt:Date.now(),pinned:false};
