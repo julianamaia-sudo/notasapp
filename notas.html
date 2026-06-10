@@ -417,7 +417,7 @@ function jsonp(url){
   });
 }
 // Salva via JSONP em chunks (resolve CORS e limite de tamanho)
-const CHUNK_SIZE = 1500; // chars por chunk — URL-safe para Apps Script
+const CHUNK_SIZE = 4000; // chars por chunk — seguro para URL do Apps Script
 
 async function postToSheets(url, key, data) {
   const chunks = [];
@@ -434,6 +434,8 @@ async function postToSheets(url, key, data) {
       + '&chunk=' + encodeURIComponent(chunks[i]);
     const result = await jsonp(chunkUrl);
     if (result && result.error) throw new Error('Chunk ' + i + ': ' + result.error);
+    // Pequena pausa entre chunks para não sobrecarregar o Apps Script
+    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 300));
   }
   return true;
 }
@@ -1041,4 +1043,3 @@ init();
 </script>
 </body>
 </html>
-
