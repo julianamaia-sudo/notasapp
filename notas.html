@@ -403,19 +403,30 @@ function jsonp(url){
 }
 function postToSheets(url,key,data){
   return new Promise((resolve,reject)=>{
-    const ifId='_pif_'+Date.now(), frId='_pfr_'+Date.now();
+    const ifId='_pif_'+Date.now();
     const iframe=document.createElement('iframe');
     iframe.name=ifId; iframe.style.display='none';
     document.body.appendChild(iframe);
     const form=document.createElement('form');
     form.method='POST'; form.action=url; form.target=ifId; form.style.display='none';
     [['action','save'],['key',key],['data',data]].forEach(([n,v])=>{
-      const i=document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i);
+      const inp=document.createElement('input'); inp.type='hidden'; inp.name=n; inp.value=v; form.appendChild(inp);
     });
     document.body.appendChild(form);
-    const t=setTimeout(()=>{cleanup();reject(new Error('timeout'));},15000);
-    iframe.onload=()=>{clearTimeout(t);cleanup();resolve(true);};
-    function cleanup(){if(form.parentNode)form.parentNode.removeChild(form);if(iframe.parentNode)iframe.parentNode.removeChild(iframe);}
+    // Timeout generoso para dados grandes
+    const t=setTimeout(()=>{cleanup();reject(new Error('timeout'));},30000);
+    let loaded=false;
+    iframe.onload=()=>{
+      if(loaded) return; loaded=true;
+      clearTimeout(t); cleanup(); resolve(true);
+    };
+    iframe.onerror=()=>{clearTimeout(t);cleanup();reject(new Error('post error'));};
+    function cleanup(){
+      setTimeout(()=>{
+        if(form.parentNode)form.parentNode.removeChild(form);
+        if(iframe.parentNode)iframe.parentNode.removeChild(iframe);
+      },500);
+    }
     form.submit();
   });
 }
@@ -423,9 +434,15 @@ async function syncToSheets(){
   if(!cfg.url||!cfg.key||isSyncing) return;
   isSyncing=true; setSyncStatus('busy','salvando...');
   try{
-    await postToSheets(cfg.url,cfg.key,JSON.stringify(state));
+    const data=JSON.stringify(state);
+    const kb=Math.round(data.length/1024);
+    setSyncStatus('busy','salvando ('+kb+'kb)...');
+    await postToSheets(cfg.url,cfg.key,data);
     setSyncStatus('ok','salvo '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-  }catch(e){ setSyncStatus('err','erro ao salvar'); }
+  }catch(e){
+    console.error('Sync error:',e);
+    setSyncStatus('err','erro ao salvar — Ctrl+S para tentar novamente');
+  }
   isSyncing=false;
 }
 async function loadFromSheets(){
