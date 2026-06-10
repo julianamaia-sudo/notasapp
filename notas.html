@@ -401,47 +401,39 @@ function jsonp(url){
     document.head.appendChild(s);
   });
 }
-function postToSheets(url,key,data){
-  return new Promise((resolve,reject)=>{
-    const ifId='_pif_'+Date.now();
-    const iframe=document.createElement('iframe');
-    iframe.name=ifId; iframe.style.display='none';
-    document.body.appendChild(iframe);
-    const form=document.createElement('form');
-    form.method='POST'; form.action=url; form.target=ifId; form.style.display='none';
-    [['action','save'],['key',key],['data',data]].forEach(([n,v])=>{
-      const inp=document.createElement('input'); inp.type='hidden'; inp.name=n; inp.value=v; form.appendChild(inp);
-    });
-    document.body.appendChild(form);
-    // Timeout generoso para dados grandes
-    const t=setTimeout(()=>{cleanup();reject(new Error('timeout'));},30000);
-    let loaded=false;
-    iframe.onload=()=>{
-      if(loaded) return; loaded=true;
-      clearTimeout(t); cleanup(); resolve(true);
-    };
-    iframe.onerror=()=>{clearTimeout(t);cleanup();reject(new Error('post error'));};
-    function cleanup(){
-      setTimeout(()=>{
-        if(form.parentNode)form.parentNode.removeChild(form);
-        if(iframe.parentNode)iframe.parentNode.removeChild(iframe);
-      },500);
-    }
-    form.submit();
-  });
+// Salva via JSONP em chunks (resolve CORS e limite de tamanho)
+const CHUNK_SIZE = 1500; // chars por chunk — URL-safe para Apps Script
+
+async function postToSheets(url, key, data) {
+  const chunks = [];
+  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+    chunks.push(data.slice(i, i + CHUNK_SIZE));
+  }
+  // Salva chunk por chunk via JSONP
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkUrl = url
+      + '?action=save_chunk'
+      + '&key='   + encodeURIComponent(key)
+      + '&idx='   + i
+      + '&total=' + chunks.length
+      + '&chunk=' + encodeURIComponent(chunks[i]);
+    const result = await jsonp(chunkUrl);
+    if (result && result.error) throw new Error('Chunk ' + i + ': ' + result.error);
+  }
+  return true;
 }
 async function syncToSheets(){
   if(!cfg.url||!cfg.key||isSyncing) return;
-  isSyncing=true; setSyncStatus('busy','salvando...');
+  isSyncing=true;
+  const data=JSON.stringify(state);
+  const kb=Math.round(data.length/1024);
+  setSyncStatus('busy','salvando ('+kb+'kb)...');
   try{
-    const data=JSON.stringify(state);
-    const kb=Math.round(data.length/1024);
-    setSyncStatus('busy','salvando ('+kb+'kb)...');
     await postToSheets(cfg.url,cfg.key,data);
     setSyncStatus('ok','salvo '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){
     console.error('Sync error:',e);
-    setSyncStatus('err','erro ao salvar — Ctrl+S para tentar novamente');
+    setSyncStatus('err','erro — Ctrl+S p/ tentar novamente');
   }
   isSyncing=false;
 }
