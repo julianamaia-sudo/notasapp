@@ -452,27 +452,42 @@ function saveLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 function saveCfg()   { localStorage.setItem(STORAGE_KEY+'_cfg', JSON.stringify(cfg)); }
 
 // ═══════════════════════════════════════
-// ── JSONBin.io backend ──
+// ── Supabase backend ──
 // ═══════════════════════════════════════
-const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/6a29bbecda38895dfea8d688';
-const JSONBIN_KEY = '$2a$10$pkItUQ.BdvTZE79HbxqKxezm5d8hmetuqo6vWS4WzCdsIBVPh9MKK';
+const SB_URL = 'https://sxrqswxykzrmvhuqaupf.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4cnFzd3h5a3pybXZodXFhdXBmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODc4NjQsImV4cCI6MjA5Njc2Mzg2NH0.UyvexG7hBPvndpCviP1n2X_pX-b03DGMqxSw2Do5wCQ';
+const SB_TABLE = 'notas';
+const SB_ROW_ID = 'main';
 
 function setSyncStatus(s,l){
   const dot=document.getElementById('sync-dot'), lbl=document.getElementById('sync-label');
   dot.className=''; if(s) dot.classList.add(s); lbl.textContent=l;
 }
+
+function sbHeaders(){
+  return {
+    'Content-Type': 'application/json',
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Prefer': 'resolution=merge-duplicates'
+  };
+}
+
 async function syncToSheets(){
   if(isSyncing) return;
   isSyncing=true;
   const kb=Math.round(JSON.stringify(state).length/1024);
   setSyncStatus('busy','salvando ('+kb+'kb)...');
   try{
-    const resp=await fetch(JSONBIN_URL,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JSONBIN_KEY,'X-Bin-Versioning':'false'},
-      body:JSON.stringify(state)
+    const resp=await fetch(SB_URL+'/rest/v1/'+SB_TABLE, {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ id: SB_ROW_ID, data: JSON.stringify(state) })
     });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    if(!resp.ok){
+      const err=await resp.text();
+      throw new Error('HTTP '+resp.status+' '+err);
+    }
     setSyncStatus('ok','salvo '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
   }catch(e){
     console.error('Sync error:',e);
@@ -480,21 +495,27 @@ async function syncToSheets(){
   }
   isSyncing=false;
 }
+
 async function loadFromSheets(){
   setSyncStatus('busy','carregando...');
   try{
-    const resp=await fetch(JSONBIN_URL+'/latest',{
-      headers:{'X-Master-Key':JSONBIN_KEY}
+    const resp=await fetch(SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.'+SB_ROW_ID+'&select=data', {
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY
+      }
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const json=await resp.json();
-    const data=json.record||json;
-    if(data&&data.sections){
-      state=data;
-      if(!state.birthdays) state.birthdays=[];
-      saveLocal();
-      setSyncStatus('ok','carregado');
-      return true;
+    const rows=await resp.json();
+    if(rows&&rows.length>0&&rows[0].data){
+      const data=JSON.parse(rows[0].data);
+      if(data&&data.sections){
+        state=data;
+        if(!state.birthdays) state.birthdays=[];
+        saveLocal();
+        setSyncStatus('ok','carregado');
+        return true;
+      }
     }
     setSyncStatus('ok','conectado');
     return true;
