@@ -273,6 +273,19 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
   }
   .link-type-btn:hover { background: var(--bg2); }
   .link-type-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+  /* ── TABLE IN EDITOR ── */
+  #editor table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  #editor table td, #editor table th {
+    border: 1px solid var(--border2); padding: 8px 10px;
+    font-size: 14px; min-width: 60px; vertical-align: top;
+  }
+  #editor table th {
+    background: var(--bg3); font-weight: 600;
+    color: var(--ink); text-align: left;
+  }
+  #editor table td { background: var(--panel); }
+  #editor table tr:hover td { background: var(--bg2); }
 </style>
 </head>
 <body>
@@ -282,6 +295,9 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
   <div id="topbar-spacer"></div>
   <div id="sync-status"><div id="sync-dot"></div><span id="sync-label">sem conexão</span></div>
   <button class="tb-btn" id="btn-import">📥 Importar .docx</button>
+  <button class="tb-btn" id="btn-export-page" title="Exportar página atual como HTML">⬇ Exportar pág.</button>
+  <button class="tb-btn" id="btn-backup" title="Backup completo">💾 Backup</button>
+  <input type="file" id="file-restore-input" accept=".json" style="display:none">
   <input type="file" id="file-import-input" accept=".docx" multiple>
   <button class="tb-btn" id="btn-bday" title="Aniversários do time">🎂 Aniversários</button>
 
@@ -289,13 +305,19 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
 
 <div id="layout">
   <div id="sidebar">
-    <div id="sidebar-header">Seções <button id="btn-new-section">+</button></div>
+    <div id="sidebar-header">Seções
+      <div style="display:flex;gap:4px;align-items:center;">
+        <button id="btn-sort-sections" title="Ordenar A-Z" style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:12px;padding:0 2px;transition:color 0.15s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink3)'">A↓Z</button>
+        <button id="btn-new-section">+</button>
+      </div>
+    </div>
     <div id="sections-list"></div>
   </div>
 
   <div id="pages-panel">
     <div id="pages-header">
       <div id="pages-title">—</div>
+      <button id="btn-sort-pages" title="Ordenar A-Z" style="background:none;border:none;cursor:pointer;color:var(--ink3);font-size:11px;padding:0 4px;transition:color 0.15s;flex-shrink:0;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--ink3)'">A↓Z</button>
       <button id="btn-new-page">+</button>
     </div>
     <div id="pages-search"><input type="text" id="search-input" placeholder="Buscar páginas..."></div>
@@ -334,6 +356,7 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
       <div class="fmt-sep"></div>
       <button class="fmt-btn" data-cmd="createLink">🔗</button>
       <button class="fmt-btn" id="btn-insert-link-card" title="Inserir link/documento">📎</button>
+      <button class="fmt-btn" id="btn-insert-table" title="Inserir tabela">⊞</button>
       <button class="fmt-btn" data-cmd="removeFormat">✕</button>
     </div>
     <div id="editor-wrapper">
@@ -389,6 +412,24 @@ input[type="color"].fmt-color-input{width:28px;height:28px;border:1px solid var(
 </div>
 
 
+
+<!-- TABLE MODAL -->
+<div id="table-modal-overlay" style="position:fixed;inset:0;background:rgba(42,37,32,0.5);z-index:10000;display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--panel);border-radius:12px;padding:24px;width:360px;box-shadow:0 20px 60px var(--shadow2);border:1px solid var(--border);">
+    <h3 style="font-family:'Fraunces',serif;font-size:17px;margin-bottom:16px;color:var(--ink);">⊞ Inserir Tabela</h3>
+    <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.8px;">Colunas</label>
+    <input type="number" id="tbl-cols" value="3" min="1" max="10" style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;font-size:13px;color:var(--ink);font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;">
+    <label style="font-size:11px;color:var(--ink3);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.8px;">Linhas</label>
+    <input type="number" id="tbl-rows" value="3" min="1" max="20" style="width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;font-size:13px;color:var(--ink);font-family:'DM Sans',sans-serif;outline:none;margin-bottom:14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);margin-bottom:16px;cursor:pointer;">
+      <input type="checkbox" id="tbl-header" checked> Primeira linha como cabeçalho
+    </label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn-cancel" id="tbl-cancel">Cancelar</button>
+      <button class="btn-ok" id="tbl-ok">Inserir</button>
+    </div>
+  </div>
+</div>
 
 <!-- LINK CARD MODAL -->
 <div id="link-modal-overlay">
@@ -872,6 +913,147 @@ document.getElementById('search-input').addEventListener('input',(e)=>renderPage
 // Buttons
 document.getElementById('btn-new-section').addEventListener('click',newSection);
 document.getElementById('btn-new-page').addEventListener('click',newPage);
+
+// ── SORT ALPHABETICALLY ──
+document.getElementById('btn-sort-sections').addEventListener('click',()=>{
+  if(!state.sections.length) return;
+  openModal('Ordenar Seções',
+    `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Ordenar todas as seções em ordem alfabética?</p>`,
+    ()=>{
+      state.sections.sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+      renderSections(); scheduleSave();
+      showToast('Seções ordenadas A→Z');
+      return true;
+    }
+  );
+});
+document.getElementById('btn-sort-pages').addEventListener('click',()=>{
+  const sec=getSection(state.activeSectionId);
+  if(!sec||!sec.pages.length) return;
+  openModal('Ordenar Páginas',
+    `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Ordenar as páginas de <strong>${esc(sec.name)}</strong> em ordem alfabética?</p>`,
+    ()=>{
+      sec.pages.sort((a,b)=>(a.title||'').localeCompare(b.title||'','pt-BR'));
+      renderPages(); scheduleSave();
+      showToast('Páginas ordenadas A→Z');
+      return true;
+    }
+  );
+});
+
+// ── INSERT TABLE ──
+document.getElementById('btn-insert-table').addEventListener('click',()=>{
+  document.getElementById('table-modal-overlay').style.display='flex';
+  setTimeout(()=>document.getElementById('tbl-cols').focus(),50);
+});
+document.getElementById('tbl-cancel').addEventListener('click',()=>{
+  document.getElementById('table-modal-overlay').style.display='none';
+});
+document.getElementById('tbl-ok').addEventListener('click',()=>{
+  const cols=parseInt(document.getElementById('tbl-cols').value)||3;
+  const rows=parseInt(document.getElementById('tbl-rows').value)||3;
+  const hasHeader=document.getElementById('tbl-header').checked;
+  let html='<table>';
+  for(let r=0;r<rows;r++){
+    html+='<tr>';
+    for(let c=0;c<cols;c++){
+      const tag=(r===0&&hasHeader)?'th':'td';
+      html+=`<${tag}>&nbsp;</${tag}>`;
+    }
+    html+='</tr>';
+  }
+  html+='</table><p></p>';
+  document.getElementById('editor').focus();
+  document.execCommand('insertHTML',false,html);
+  flushEditorToState(); scheduleSave();
+  document.getElementById('table-modal-overlay').style.display='none';
+  // Also allow pasting tables from Word/Excel
+  showToast('Tabela inserida! Você também pode colar tabelas do Word/Excel com Ctrl+V');
+});
+
+// ── EXPORT PAGE ──
+document.getElementById('btn-export-page').addEventListener('click',()=>{
+  const pg=getActivePage();
+  if(!pg){ showToast('Selecione uma página primeiro'); return; }
+  const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<title>${pg.title||'página'}</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#2a2520;line-height:1.7;}
+h1,h2,h3{color:#2a2520;}table{border-collapse:collapse;width:100%;}
+td,th{border:1px solid #ccc;padding:8px;}th{background:#f0ede8;}
+a{color:#1a5f8a;}.link-card{display:inline-flex;align-items:center;gap:8px;background:#f0ede8;border:1px solid #ccc;border-radius:6px;padding:6px 10px;text-decoration:none;color:#2a2520;}
+</style></head><body>
+<h1>${pg.title||'(sem título)'}</h1>
+${pg.content||''}
+</body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(pg.title||'pagina').replace(/[^a-zA-Z0-9À-ſ\s]/g,'_')+'.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Página exportada como HTML!');
+});
+
+// ── BACKUP (export all as JSON) ──
+document.getElementById('btn-backup').addEventListener('click',()=>{
+  openModal('Backup / Restaurar',
+    `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Escolha uma opção:</p>
+     <div style="display:flex;flex-direction:column;gap:8px;">
+       <button class="btn-ok" id="do-export" style="width:100%;text-align:left;padding:10px 14px;">💾 Exportar backup (.json)</button>
+       <button class="btn-cancel" id="do-import" style="width:100%;text-align:left;padding:10px 14px;">📂 Restaurar de backup (.json)</button>
+     </div>`,
+    ()=>true
+  );
+  document.getElementById('modal-ok').style.display='none';
+  document.getElementById('modal-cancel').textContent='Fechar';
+  setTimeout(()=>{
+    const doExport=document.getElementById('do-export');
+    const doImport=document.getElementById('do-import');
+    if(doExport) doExport.addEventListener('click',()=>{
+      flushEditorToState();
+      const data=JSON.stringify(state, null, 2);
+      const blob=new Blob([data],{type:'application/json'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='notas_backup_'+new Date().toISOString().slice(0,10)+'.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      document.getElementById('modal-overlay').classList.remove('show');
+      showToast('Backup exportado com sucesso!');
+    });
+    if(doImport) doImport.addEventListener('click',()=>{
+      document.getElementById('file-restore-input').click();
+      document.getElementById('modal-overlay').classList.remove('show');
+    });
+  },50);
+});
+
+document.getElementById('file-restore-input').addEventListener('change',(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  e.target.value='';
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.sections) throw new Error('Formato inválido');
+      openModal('Restaurar Backup',
+        `<p style="font-size:14px;color:var(--ink2);margin-bottom:16px">Restaurar backup de <strong>${file.name}</strong>?<br><br>⚠️ Isso vai <strong>substituir todos os dados atuais</strong>. Esta ação não pode ser desfeita.</p>`,
+        ()=>{
+          state=data;
+          if(!state.birthdays) state.birthdays=[];
+          saveLocal();
+          syncToSheets();
+          render();
+          showToast('Backup restaurado com sucesso!');
+          return true;
+        }
+      );
+    }catch(err){
+      showToast('Arquivo inválido — use um backup .json gerado por este app');
+    }
+  };
+  reader.readAsText(file);
+});
 
 // Keyboard
 document.addEventListener('keydown',(e)=>{
